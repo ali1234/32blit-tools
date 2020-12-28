@@ -1,3 +1,5 @@
+from textwrap import dedent
+
 class OutputFormat():
     name = 'none'
     components = None
@@ -30,17 +32,20 @@ class CHeader(OutputFormat):
 
     def output(self, input_data, symbol_name):
         input_data = self._helper_raw_to_c_source_hex(input_data)
-        return f'''inline const uint8_t {symbol_name}[] = {{{input_data}}};
-inline const uint32_t {symbol_name}_length = sizeof({symbol_name});'''
+        return dedent(f'''\
+            inline const uint8_t {symbol_name}[] = {{{input_data}}};
+            inline const uint32_t {symbol_name}_length = sizeof({symbol_name});
+            ''')
 
     def join(self, ext, filename, data):
         if type(data) is list:
             data = '\n'.join(data)
-        return f'''// Auto Generated File - DO NOT EDIT!
-#pragma once
-#include <cstdint>
-{data}
-'''
+        return dedent(f'''\
+            // Auto Generated File - DO NOT EDIT!
+            #pragma once
+            #include <cstdint>
+            {data}
+            ''')
 
 
 class CSource(CHeader):
@@ -49,29 +54,35 @@ class CSource(CHeader):
     extensions = ('.cpp', '.c')
 
     def output_hpp(self, input_data, symbol_name):
-        return f'''extern const uint8_t {symbol_name}[];
-extern const uint32_t {symbol_name}_length;'''
+        return dedent(f'''\
+            extern const uint8_t {symbol_name}[];
+            extern const uint32_t {symbol_name}_length;
+            ''')
 
     def output_cpp(self, input_data, symbol_name):
         input_data = self._helper_raw_to_c_source_hex(input_data)
-        return f'''const uint8_t {symbol_name}[] = {{{input_data}}};
-const uint32_t {symbol_name}_length = sizeof({symbol_name});'''
+        return dedent(f'''\
+            const uint8_t {symbol_name}[] = {{{input_data}}};
+            const uint32_t {symbol_name}_length = sizeof({symbol_name});
+            ''')
 
     def join(self, ext, filename, data):
         if type(data) is list:
             data = '\n'.join(data)
         if ext == 'cpp':
             header = filename.with_suffix('.hpp').name
-            return f'''// Auto Generated File - DO NOT EDIT!
-#include "{header}"
-{data}
-'''
+            return dedent(f'''\
+                // Auto Generated File - DO NOT EDIT!
+                #include "{header}"
+                {data}
+                ''')
         else:
-            return f'''// Auto Generated File - DO NOT EDIT!
-#pragma once
-#include <cstdint>
-{data}
-'''
+            return dedent(f'''\
+                // Auto Generated File - DO NOT EDIT!
+                #pragma once
+                #include <cstdint>
+                {data}
+                ''')
 
 
 class RawBinary(OutputFormat):
