@@ -1,9 +1,18 @@
 from textwrap import dedent
 
+
 class OutputFormat():
     name = 'none'
     components = None
     extensions = ()
+
+    by_name = {}
+    by_extension = {}
+
+    def __init_subclass__(cls):
+        OutputFormat.by_name[cls.name] = cls
+        for ext in cls.extensions:
+            OutputFormat.by_extension[ext] = cls
 
     def __str__(self):
         return self.name
@@ -105,15 +114,7 @@ object = None
 
 def parse_output_format(value):
     if type(value) is str:
-        return output_formats.get(value, None)
+        return OutputFormat.by_name.get(value, None)
     if issubclass(value, OutputFormat):
         return value
-    return output_formats[value]
-
-
-for name, object in globals().items():
-    try:
-        if issubclass(object, OutputFormat) and not name == 'OutputFormat':
-            output_formats[object.name] = object
-    except TypeError:
-        pass
+    return OutputFormat.by_name[value]
