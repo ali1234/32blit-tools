@@ -7,7 +7,14 @@ from PIL import Image
 
 from ...core.palette import Colour, Palette, type_palette
 from ...core.struct import struct_blit_image
-from ..builder import AssetBuilder
+from ..builder import AssetBuilder, AssetTool
+
+image_typemap = {
+    'image': {
+        '.png': True,
+        '.gif': True,
+    }
+}
 
 
 def repetitions(seq):
@@ -46,15 +53,58 @@ def rle(data, bit_length):
     return bits.tobytes()
 
 
-class ImageAsset(AssetBuilder):
+def quantize_image(data, palette, transparent, strict):
+    if strict and len(palette) == 0:
+        raise TypeError("Attempting to enforce strict colours with an empty palette, did you really want to do this?")
+    # Since we already have bytes, we need to pass PIL an io.BytesIO object
+    image = Image.open(io.BytesIO(data)).convert('RGBA')
+    w, h = image.size
+    output_image = Image.new('P', (w, h))
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = image.getpixel((x, y))
+            if transparent is not None and (r, g, b) == tuple(transparent):
+                a = 0x00
+            index = palette.get_entry(r, g, b, a, strict=strict)
+            output_image.putpixel((x, y), index)
+
+    return output_image
+
+
+@AssetBuilder(typemap=image_typemap)
+def image(data, subtype, packed, palette, transparent, strict, **kwargs):
+    image = quantize_image(data, palette, transparent, strict)
+
+    if packed:
+        bit_length = palette.bit_length()
+        image_data_rl = rle(image.tobytes(), bit_length)
+        image_data_pk = BitArray().join(BitArray(uint=x, length=bit_length) for x in image.tobytes()).tobytes()
+
+        if len(image_data_pk) < len(image_data_rl):
+            image_type = 'PK'
+            image_data = image_data_pk
+        else:
+            image_type = 'RL'
+            image_data = image_data_rl
+
+    else:
+        image_data = image.tobytes()
+        image_type = 'RW'
+
+    return struct_blit_image.build({
+        'type': image_type,
+        'width': image.size[0],
+        'height': image.size[1],
+        'palette_entries': len(palette),
+        'palette': palette.tostruct(),
+        'data': image_data
+    })
+
+
+class ImageAsset(AssetTool):
     command = 'image'
     help = 'Convert images/sprites for 32Blit'
-    typemap = {
-        'image': {
-            '.png': True,
-            '.gif': True,
-        }
-    }
+    builder = image
 
     def __init__(self, parser=None):
         self.options.update({
@@ -64,7 +114,7 @@ class ImageAsset(AssetBuilder):
             'strict': (bool, False)
         })
 
-        AssetBuilder.__init__(self, parser)
+        AssetTool.__init__(self, parser)
 
         self.palette = None
         self.transparent = None
@@ -78,7 +128,7 @@ class ImageAsset(AssetBuilder):
             self.parser.add_argument('--strict', action='store_true', help='Reject colours not in the palette')
 
     def prepare(self, args):
-        AssetBuilder.prepare(self, args)
+        AssetTool.prepare(self, args)
 
         if type(self.packed) is not bool:
             self.packed = self.packed == 'yes'
@@ -91,47 +141,8 @@ class ImageAsset(AssetBuilder):
             else:
                 logging.warning(f'Could not find transparent colour ({r},{g},{b}) in palette')
 
-    def quantize_image(self, input_data):
-        if self.strict and len(self.palette) == 0:
-            raise TypeError("Attempting to enforce strict colours with an empty palette, did you really want to do this?")
-        # Since we already have bytes, we need to pass PIL an io.BytesIO object
-        image = Image.open(io.BytesIO(input_data)).convert('RGBA')
-        w, h = image.size
-        output_image = Image.new('P', (w, h))
-        for y in range(h):
-            for x in range(w):
-                r, g, b, a = image.getpixel((x, y))
-                if self.transparent is not None and (r, g, b) == tuple(self.transparent):
-                    a = 0x00
-                index = self.palette.get_entry(r, g, b, a, strict=self.strict)
-                output_image.putpixel((x, y), index)
-
-        return output_image
-
-    def to_binary(self, input_data):
-        image = self.quantize_image(input_data)
-
-        if self.packed:
-            bit_length = self.palette.bit_length()
-            image_data_rl = rle(image.tobytes(), bit_length)
-            image_data_pk = BitArray().join(BitArray(uint=x, length=bit_length) for x in image.tobytes()).tobytes()
-
-            if len(image_data_pk) < len(image_data_rl):
-                image_type = 'PK'
-                image_data = image_data_pk
-            else:
-                image_type = 'RL'
-                image_data = image_data_rl
-
-        else:
-            image_data = image.tobytes()
-            image_type = 'RW'
-
-        return struct_blit_image.build({
-            'type': image_type,
-            'width': image.size[0],
-            'height': image.size[1],
-            'palette_entries': len(self.palette),
-            'palette': self.palette.tostruct(),
-            'data': image_data
-        })
+    def to_binary(self):
+        return self.builder.from_file(
+            self.input_file, self.input_type,
+            packed=self.packed, palette=self.palette, transparent=self.transparent, strict=self.strict
+        )
