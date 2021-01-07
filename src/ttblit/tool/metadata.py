@@ -42,7 +42,7 @@ class Metadata(Tool):
         asset = ImageAsset(argparse.ArgumentParser().add_subparsers())
         asset.prepare(config)
 
-        return asset.to_binary(open(image_file, 'rb').read())
+        return asset.to_binary()
 
     def packed_to_image(self, image):
         bits = Bits(bytes=image.data)
