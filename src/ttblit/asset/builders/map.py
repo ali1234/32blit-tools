@@ -4,9 +4,11 @@ from .raw import RawAsset
 class MapAsset(RawAsset):
     command = 'map'
     help = 'Convert popular tilemap formats for 32Blit'
-    types = ['tiled']
     typemap = {
-        'tiled': ('.tmx', '.raw'),
+        'tiled': {
+            '.tmx': True,
+            '.raw': False,
+        },
     }
 
     def tiled_to_binary(self, input_data):
