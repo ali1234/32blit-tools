@@ -1,5 +1,6 @@
 import io
 import logging
+import pathlib
 from math import ceil
 
 from bitstring import BitArray
@@ -72,7 +73,12 @@ def quantize_image(data, palette, transparent, strict):
 
 
 @AssetBuilder(typemap=image_typemap)
-def image(data, subtype, packed, palette, transparent, strict, **kwargs):
+def image(data, subtype, packed=True, palette=None, transparent=None, strict=False, **kwargs):
+    if palette is None:
+        palette = Palette()
+    elif isinstance(palette, pathlib.Path):
+        palette = Palette(palette)
+
     image = quantize_image(data, palette, transparent, strict)
 
     if packed:
