@@ -5,7 +5,6 @@ from .. import tool
 
 
 class Tool():
-    options = {}
     _by_command = {}
 
     def __init__(self, parser=None):
@@ -16,13 +15,6 @@ class Tool():
     def __init_subclass__(cls):
         if hasattr(cls, 'command'):
             cls._by_command[cls.command] = cls
-
-    def prepare(self, opts):
-        for option, option_type in self.options.items():
-            default_value = None
-            if type(option_type) is tuple:
-                option_type, default_value = option_type
-            setattr(self, option, opts.get(option, default_value))
 
     def run(self, args):
         raise NotImplementedError
