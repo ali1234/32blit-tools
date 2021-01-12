@@ -18,21 +18,12 @@ class CMake(Tool):
         self.parser.add_argument('--output', type=pathlib.Path, help='Name for output file(s) or root path when using --config')
 
         self.config = {}
-        self.general_options = {}
 
     def parse_config(self, config_file):
         config = open(config_file).read()
         config = yaml.safe_load(config)
 
         self.config = config
-
-    def get_general_options(self):
-        for key, value in self.config.items():
-            if key in ():
-                self.general_options[key] = value
-
-        for key, value in self.general_options.items():
-            self.config.items.pop(key)
 
     def run(self, args):
         self.working_path = pathlib.Path('.')
@@ -87,8 +78,6 @@ class CMake(Tool):
     ''')
 
     def run_for_asset_config(self, args):
-        self.get_general_options()
-
         all_inputs = []
         all_outputs = []
 
