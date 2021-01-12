@@ -47,18 +47,16 @@ class Packer(Tool):
             self.config.items.pop(key)
 
     def run(self, args):
-        if args.config is not None:
-            if args.config.is_file():
-                os.chdir(args.config.parent)
-            else:
-                logging.warning(f'Unable to find config at {args.config}')
-
         if args.output is not None:
             self.destination_path = args.output
         else:
             self.destination_path = pathlib.Path('.')
 
         if args.config is not None:
+            if args.config.is_file():
+                os.chdir(args.config.parent)
+            else:
+                logging.warning(f'Unable to find config at {args.config}')
             self.parse_config(args.config)
             logging.info(f'Using config at {args.config}')
 
