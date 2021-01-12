@@ -10,14 +10,12 @@ from .formatter import AssetFormatter
 from .writer import AssetWriter
 
 
-def make_symbol_name(base=None, working_path=None, input_file=None, input_type=None, input_subtype=None, prefix=None):
+def make_symbol_name(base=None, input_file=None, input_type=None, input_subtype=None, prefix=None):
     if base is None:
         if input_file is None:
             raise NameError("No base name or input file provided.")
-        if working_path is None:
-            name = '_'.join(input_file.parts)
         else:
-            name = '_'.join(input_file.relative_to(working_path).parts)
+            name = '_'.join(input_file.parts)
     else:
         name = base.format(
             filename=input_file.with_suffix('').name,
@@ -97,7 +95,6 @@ class AssetTool(Tool):
         'symbol_name': str,
         'force': bool,
         'prefix': str,
-        'working_path': pathlib.Path
     }
 
     def __init__(self, parser=None):
@@ -131,7 +128,7 @@ class AssetTool(Tool):
             raise ValueError(f'Invalid type {self.input_type}, choices {self.builder.typemap.keys()}')
 
         self.symbol_name = make_symbol_name(
-            base=self.symbol_name, working_path=self.working_path, input_file=self.input_file,
+            base=self.symbol_name, input_file=self.input_file,
             input_type=self.builder.name, input_subtype=self.input_type, prefix=self.prefix
         )
 

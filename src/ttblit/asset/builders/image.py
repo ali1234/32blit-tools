@@ -1,6 +1,5 @@
 import io
 import logging
-import pathlib
 from math import ceil
 
 from bitstring import BitArray
@@ -76,7 +75,7 @@ def quantize_image(data, palette, transparent, strict):
 def image(data, subtype, packed=True, palette=None, transparent=None, strict=False, **kwargs):
     if palette is None:
         palette = Palette()
-    elif isinstance(palette, pathlib.Path):
+    elif not isinstance(palette, Palette):
         palette = Palette(palette)
 
     image = quantize_image(data, palette, transparent, strict)

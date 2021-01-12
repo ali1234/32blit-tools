@@ -1,4 +1,5 @@
 import logging
+import os
 import pathlib
 
 import yaml
@@ -46,18 +47,16 @@ class Packer(Tool):
             self.config.items.pop(key)
 
     def run(self, args):
-        self.working_path = pathlib.Path('.')
-
         if args.config is not None:
             if args.config.is_file():
-                self.working_path = args.config.parent
+                os.chdir(args.config.parent)
             else:
                 logging.warning(f'Unable to find config at {args.config}')
 
         if args.output is not None:
             self.destination_path = args.output
         else:
-            self.destination_path = self.working_path
+            self.destination_path = pathlib.Path('.')
 
         if args.config is not None:
             self.parse_config(args.config)
@@ -70,7 +69,7 @@ class Packer(Tool):
 
         # Top level of our config is filegroups and general settings
         for target, options in self.config.items():
-            output_file = self.working_path / target
+            output_file = pathlib.Path(target)
             logging.info(f'Preparing output target {output_file}')
 
             asset_sources = []
@@ -88,11 +87,11 @@ class Packer(Tool):
             for file_glob, file_options in options.items():
                 # Treat the input string as a glob, and get an input filelist
                 if type(file_glob) is str:
-                    input_files = list(self.working_path.glob(file_glob))
+                    input_files = list(pathlib.Path('.').glob(file_glob))
                 else:
                     input_files = [file_glob]
                 if len(input_files) == 0:
-                    logging.warning(f'Input file(s) not found {self.working_path / file_glob}')
+                    logging.warning(f'Input file(s) not found {file_glob}')
                     continue
 
                 # Rewrite a single string option to `name: option`
@@ -121,13 +120,13 @@ class Packer(Tool):
         for path, sources, options in self.targets:
             aw = AssetWriter()
             for input_files, file_opts in sources:
-                for asset in build_assets(input_files, self.working_path, file_opts, prefix=options.get('prefix')):
+                for asset in build_assets(input_files, file_opts, prefix=options.get('prefix')):
                     aw.add_asset(*asset)
 
             aw.write(options.get('type'), self.destination_path / path.name, force=args.force)
 
 
-def build_assets(input_files, working_path, builder_options, typestr=None, prefix=None):
+def build_assets(input_files, builder_options, typestr=None, prefix=None):
     if typestr is None:
         # Glob files all have the same suffix, so we only care about the first one
         try:
@@ -139,20 +138,9 @@ def build_assets(input_files, working_path, builder_options, typestr=None, prefi
     input_type, input_subtype = typestr.split('/')
     builder = AssetBuilder._by_name[input_type]
 
-    # Now we know our target builder, one last iteration through the options
-    # allows some pre-processing stages to remap paths or other idiosyncrasies
-    # of the yml config format.
-    # Currently the only option we need to do this on is 'palette' for images.
-    for option in ['palette']:
-        try:
-            if not pathlib.Path(builder_options[option]).is_absolute():
-                builder_options[option] = working_path / builder_options[option]
-        except KeyError:
-            pass
-
     for file in input_files:
         symbol_name = make_symbol_name(
-            base=builder_options.get('name', None), working_path=working_path, input_file=file,
+            base=builder_options.get('name', None), input_file=file,
             input_type=input_type, input_subtype=input_subtype, prefix=prefix
         )
 
